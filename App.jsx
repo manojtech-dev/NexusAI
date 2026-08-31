@@ -1,95 +1,117 @@
-import { useState } from "react";
+import React, { useState, useEffect, useRef } from 'react';
 
-function App() {
-  const [token, setToken] = useState(localStorage.getItem("token") || "");
-  const [username, setUsername] = useState(localStorage.getItem("username") || "");
-  const [authInput, setAuthInput] = useState({ username: "", password: "" });
-  const [isRegister, setIsRegister] = useState(false);
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
+export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [chatHistory, setChatHistory] = useState([]);
+  const [error, setError] = useState('');
+  const messagesEndRef = useRef(null);
 
-  const handleAuth = async () => {
-    const endpoint = isRegister ? "/api/register" : "/api/login";
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [chatHistory]);
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
     try {
-      const res = await fetch(`http://localhost:5000${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(authInput)
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
       });
       const data = await res.json();
       if (res.ok) {
-        if (!isRegister) {
-          setToken(data.token);
-          setUsername(data.username);
-          localStorage.setItem("token", data.token);
-          localStorage.setItem("username", data.username);
-        } else {
-          alert("Registration successful! Please login.");
-          setIsRegister(false);
-        }
+        alert('Registered successfully! Please login.');
+        setIsRegistering(false);
       } else {
-        alert(data.error || "Authentication failed");
+        setError(data.error || 'Registration failed');
       }
     } catch (err) {
-      alert("Server connection failed");
+      alert('Server connection failed');
     }
   };
 
-  const logout = () => {
-    setToken("");
-    setUsername("");
-    localStorage.clear();
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('username', data.username);
+        setIsLoggedIn(true);
+      } else {
+        setError(data.error || 'Invalid credentials');
+      }
+    } catch (err) {
+      alert('Server connection failed');
+    }
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = input;
-    setInput("");
-    setMessages(prev => [...prev, { sender: "user", text: userMsg }]);
-    setLoading(true);
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!message.trim()) return;
+
+    const userMsg = message;
+    setMessage('');
+    setChatHistory(prev => [...prev, { sender: 'user', text: userMsg }]);
 
     try {
-      const res = await fetch("http://localhost:5000/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg, username })
       });
       const data = await res.json();
-      setMessages(prev => [...prev, { sender: "bot", text: data.reply }]);
+      setChatHistory(prev => [...prev, { sender: 'bot', text: data.reply }]);
     } catch (err) {
-      setMessages(prev => [...prev, { sender: "bot", text: "Error connecting to AI server." }]);
-    } finally {
-      setLoading(false);
+      setChatHistory(prev => [...prev, { sender: 'bot', text: 'Error connecting to server.' }]);
     }
   };
 
-  if (!token) {
+  if (!isLoggedIn) {
     return (
-      <div style={styles.authContainer}>
-        <div style={styles.authCard}>
-          <div style={styles.badge}>AgentFlow AI</div>
-          <h2 style={styles.authTitle}>{isRegister ? "Create Account" : "Welcome Back"}</h2>
-          <p style={styles.authSubtitle}>{isRegister ? "Sign up to start chatting" : "Please sign in to continue"}</p>
-          
-          <input 
-            style={styles.input} 
-            placeholder="Username" 
-            onChange={e => setAuthInput({...authInput, username: e.target.value})} 
-          />
-          <input 
-            style={styles.input} 
-            type="password" 
-            placeholder="Password" 
-            onChange={e => setAuthInput({...authInput, password: e.target.value})} 
-          />
-          
-          <button style={styles.primaryButton} onClick={handleAuth}>
-            {isRegister ? "Register" : "Sign In"}
-          </button>
-          
-          <p style={styles.switchText} onClick={() => setIsRegister(!isRegister)}>
-            {isRegister ? "Already have an account? Login" : "Don't have an account? Register"}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0f172a', color: '#fff', fontFamily: 'sans-serif' }}>
+        <div style={{ background: '#1e293b', padding: '30px', borderRadius: '10px', width: '350px', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+          <h1 style={{ textAlign: 'center', color: '#3b82f6', fontSize: '24px', marginBottom: '5px' }}>NexusAI</h1>
+          <h2 style={{ textAlign: 'center', marginBottom: '20px', fontSize: '18px', color: '#94a3b8' }}>{isRegistering ? 'Create Account' : 'Login'}</h2>
+          {error && <p style={{ color: '#ef4444', textAlign: 'center', marginBottom: '15px' }}>{error}</p>}
+          <form onSubmit={isRegistering ? handleRegister : handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <input 
+              type="text" 
+              placeholder="Username" 
+              value={username} 
+              onChange={(e) => setUsername(e.target.value)} 
+              required 
+              style={{ padding: '10px', borderRadius: '5px', border: '1px solid #475569', background: '#0f172a', color: '#fff' }}
+            />
+            <input 
+              type="password" 
+              placeholder="Password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              required 
+              style={{ padding: '10px', borderRadius: '5px', border: '1px solid #475569', background: '#0f172a', color: '#fff' }}
+            />
+            <button type="submit" style={{ padding: '10px', borderRadius: '5px', border: 'none', background: '#3b82f6', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}>
+              {isRegistering ? 'Register' : 'Login'}
+            </button>
+          </form>
+          <p style={{ textAlign: 'center', marginTop: '15px', fontSize: '14px', cursor: 'pointer', color: '#60a5fa' }} onClick={() => setIsRegistering(!isRegistering)}>
+            {isRegistering ? 'Already have an account? Login' : "Don't have an account? Register"}
           </p>
         </div>
       </div>
@@ -97,263 +119,30 @@ function App() {
   }
 
   return (
-    <div style={styles.chatContainer}>
-      <div style={styles.header}>
-        <div style={styles.brandContainer}>
-          <div style={styles.logoDot}></div>
-          <h2 style={styles.brandTitle}>NexusAI</h2>
-        </div>
-        <div style={styles.userSection}>
-          <span style={styles.welcomeText}>Hello, <b>{username}</b></span>
-          <button style={styles.logoutButton} onClick={logout}>Logout</button>
-        </div>
-      </div>
-
-      <div style={styles.chatBox}>
-        {messages.length === 0 && (
-          <div style={styles.emptyState}>
-            <h3>How can I help you today?</h3>
-            <p>Ask me anything about technology, coding, or college subjects.</p>
-          </div>
-        )}
-        {messages.map((m, idx) => (
-          <div key={idx} style={{display: 'flex', justifyContent: m.sender === "user" ? "flex-end" : "flex-start", margin: "12px 0"}}>
-            <div style={m.sender === "user" ? styles.userBubble : styles.botBubble}>
-              {m.text}
-            </div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0f172a', color: '#fff', fontFamily: 'sans-serif' }}>
+      <header style={{ padding: '15px 20px', background: '#1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155' }}>
+        <h3 style={{ margin: 0, color: '#3b82f6' }}>NexusAI College Assistant</h3>
+        <button onClick={() => setIsLoggedIn(false)} style={{ padding: '8px 15px', background: '#ef4444', border: 'none', borderRadius: '5px', color: '#fff', cursor: 'pointer' }}>Logout</button>
+      </header>
+      <div style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {chatHistory.map((chat, index) => (
+          <div key={index} style={{ alignSelf: chat.sender === 'user' ? 'flex-end' : 'flex-start', background: chat.sender === 'user' ? '#3b82f6' : '#1e293b', padding: '10px 15px', borderRadius: '10px', maxWidth: '70%' }}>
+            {chat.text}
           </div>
         ))}
-        {loading && (
-          <div style={{display: 'flex', justifyContent: 'flex-start', margin: '12px 0'}}>
-            <div style={styles.botBubble}>Thinking...</div>
-          </div>
-        )}
+        <div ref={messagesEndRef} />
       </div>
-
-      <div style={styles.inputContainer}>
+      <form onSubmit={handleSendMessage} style={{ display: 'flex', padding: '15px', background: '#1e293b', borderTop: '1px solid #334155' }}>
         <input 
-          style={styles.chatInput} 
-          value={input} 
-          onChange={e => setInput(e.target.value)}
-          placeholder="Ask anything (e.g. Artificial Intelligence, Python)..."
-          onKeyDown={e => e.key === "Enter" && sendMessage()}
+          type="text" 
+          placeholder="Ask about admission, exams, hostel..." 
+          value={message} 
+          onChange={(e) => setMessage(e.target.value)} 
+          style={{ flex: 1, padding: '10px', borderRadius: '5px 0 0 5px', border: '1px solid #475569', background: '#0f172a', color: '#fff', outline: 'none' }}
         />
-        <button style={styles.sendButton} onClick={sendMessage}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-        </button>
-      </div>
+        <button type="submit" style={{ padding: '10px 20px', background: '#3b82f6', border: 'none', borderRadius: '0 5px 5px 0', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}>Send</button>
+      </form>
     </div>
   );
-}
-
-const styles = {
-  authContainer: {
-    height: '100vh',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-  },
-  authCard: {
-    background: 'rgba(30, 41, 59, 0.7)',
-    backdropFilter: 'blur(16px)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    padding: '40px',
-    borderRadius: '24px',
-    width: '100%',
-    maxWidth: '400px',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-    color: '#fff',
-    textAlign: 'center'
-  },
-  badge: {
-    display: 'inline-block',
-    padding: '6px 14px',
-    background: 'rgba(99, 102, 241, 0.2)',
-    color: '#818cf8',
-    borderRadius: '20px',
-    fontSize: '12px',
-    fontWeight: '600',
-    marginBottom: '20px'
-  },
-  authTitle: {
-    fontSize: '24px',
-    fontWeight: '700',
-    marginBottom: '8px'
-  },
-  authSubtitle: {
-    color: '#94a3b8',
-    fontSize: '14px',
-    marginBottom: '24px'
-  },
-  input: {
-    width: '100%',
-    padding: '14px 16px',
-    marginBottom: '16px',
-    background: 'rgba(15, 23, 42, 0.6)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    borderRadius: '12px',
-    color: '#fff',
-    fontSize: '14px',
-    outline: 'none',
-    boxSizing: 'border-box'
-  },
-  primaryButton: {
-    width: '100%',
-    padding: '14px',
-    background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '12px',
-    fontSize: '15px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.4)',
-    transition: 'all 0.2s'
-  },
-  switchText: {
-    marginTop: '20px',
-    color: '#818cf8',
-    fontSize: '14px',
-    cursor: 'pointer'
-  },
-  chatContainer: {
-    height: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    background: '#0f172a',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    color: '#fff',
-    maxWidth: '900px',
-    margin: '0 auto',
-    padding: '20px',
-    boxSizing: 'border-box'
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px 24px',
-    background: 'rgba(30, 41, 59, 0.6)',
-    backdropFilter: 'blur(12px)',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    borderRadius: '16px',
-    marginBottom: '20px'
-  },
-  brandContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px'
-  },
-  logoDot: {
-    width: '12px',
-    height: '12px',
-    background: '#6366f1',
-    borderRadius: '50%',
-    boxShadow: '0 0 10px #6366f1'
-  },
-  brandTitle: {
-    fontSize: '18px',
-    fontWeight: '700',
-    margin: 0,
-    background: 'linear-gradient(to right, #fff, #94a3b8)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent'
-  },
-  userSection: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px'
-  },
-  welcomeText: {
-    fontSize: '14px',
-    color: '#cbd5e1'
-  },
-  logoutButton: {
-    padding: '8px 16px',
-    background: 'rgba(239, 68, 68, 0.1)',
-    color: '#f87171',
-    border: '1px solid rgba(239, 68, 68, 0.2)',
-    borderRadius: '8px',
-    fontSize: '13px',
-    fontWeight: '600',
-    cursor: 'pointer'
-  },
-  chatBox: {
-    flex: 1,
-    background: 'rgba(15, 23, 42, 0.4)',
-    border: '1px solid rgba(255, 255, 255, 0.05)',
-    borderRadius: '16px',
-    padding: '24px',
-    overflowY: 'auto',
-    marginBottom: '20px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px'
-  },
-  emptyState: {
-    height: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    color: '#64748b',
-    textAlign: 'center'
-  },
-  userBubble: {
-    background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-    color: '#fff',
-    padding: '12px 18px',
-    borderRadius: '16px 16px 4px 16px',
-    maxWidth: '75%',
-    fontSize: '14px',
-    lineHeight: '1.5',
-    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)'
-  },
-  botBubble: {
-    background: 'rgba(30, 41, 59, 0.8)',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    color: '#e2e8f0',
-    padding: '12px 18px',
-    borderRadius: '16px 16px 16px 4px',
-    maxWidth: '75%',
-    fontSize: '14px',
-    lineHeight: '1.5'
-  },
-  inputContainer: {
-    display: 'flex',
-    gap: '12px',
-    background: 'rgba(30, 41, 59, 0.6)',
-    backdropFilter: 'blur(12px)',
-    padding: '10px 16px',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    borderRadius: '16px',
-    alignItems: 'center'
-  },
-  chatInput: {
-    flex: 1,
-    background: 'transparent',
-    border: 'none',
-    color: '#fff',
-    fontSize: '14px',
-    outline: 'none',
-    padding: '8px'
-  },
-  sendButton: {
-    background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '10px',
-    width: '40px',
-    height: '40px',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    cursor: 'pointer',
-    boxShadow: '0 2px 8px rgba(99, 102, 241, 0.4)'
-  }
-};
-
-export default App;
-
+    }
+    
