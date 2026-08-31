@@ -16,23 +16,27 @@ const SECRET_KEY = 'mysecretkey';
 let db;
 
 (async () => {
-  db = await open({
-    filename: './college.db',
-    driver: sqlite3.Database
-  });
+  try {
+    db = await open({
+      filename: path.join(__dirname, 'college.db'),
+      driver: sqlite3.Database
+    });
 
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT);
-    CREATE TABLE IF NOT EXISTS history (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, message TEXT, reply TEXT);
-    CREATE TABLE IF NOT EXISTS college_info (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, question TEXT, answer TEXT);
-  `);
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT);
+      CREATE TABLE IF NOT EXISTS history (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, message TEXT, reply TEXT);
+      CREATE TABLE IF NOT EXISTS college_info (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, question TEXT, answer TEXT);
+    `);
 
-  await db.run(`
-    INSERT OR IGNORE INTO college_info (id, category, question, answer) VALUES 
-    (1, 'admission', 'admission date', 'College admissions for ECE and CSE start on June 1st and close by June 30th.'),
-    (2, 'exam', 'exam dates', 'Internal exams start next month 15th, and semester exams begin in November.'),
-    (3, 'hostel', 'hostel facility', 'Separate hostel facilities are available for boys and girls with mess and Wi-Fi.');
-  `);
+    await db.run(`
+      INSERT OR IGNORE INTO college_info (id, category, question, answer) VALUES 
+      (1, 'admission', 'admission date', 'College admissions for ECE and CSE start on June 1st and close by June 30th.'),
+      (2, 'exam', 'exam dates', 'Internal exams start next month 15th, and semester exams begin in November.'),
+      (3, 'hostel', 'hostel facility', 'Separate hostel facilities are available for boys and girls with mess and Wi-Fi.');
+    `);
+  } catch (err) {
+    console.error("Database initialization error:", err);
+  }
 })();
 
 app.post('/api/register', async (req, res) => {
@@ -82,3 +86,11 @@ app.post('/api/chat', async (req, res) => {
     res.status(500).json({ reply: "Error connecting to server." });
   }
 });
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+         
