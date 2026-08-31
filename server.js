@@ -59,7 +59,18 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/chat', async (req, res) => {
   const { message, username } = req.body;
   try {
-    const match = await db.get('SELECT answer FROM college_info WHERE question LIKE ?', [`%${message}%`]);
+    const lowerMsg = message.toLowerCase();
+    let keyword = '';
+    
+    if (lowerMsg.includes('admission') || lowerMsg.includes('seat') || lowerMsg.includes('join')) {
+      keyword = 'admission';
+    } else if (lowerMsg.includes('exam') || lowerMsg.includes('test') || lowerMsg.includes('mark')) {
+      keyword = 'exam';
+    } else if (lowerMsg.includes('hostel') || lowerMsg.includes('room') || lowerMsg.includes('mess')) {
+      keyword = 'hostel';
+    }
+
+    const match = await db.get('SELECT answer FROM college_info WHERE category LIKE ? OR question LIKE ?', [`%${keyword}%`, `%${keyword}%`]);
     const reply = match ? match.answer : "Sorry, I don't have information about that. Please contact the college office.";
 
     if (username) {
@@ -71,11 +82,3 @@ app.post('/api/chat', async (req, res) => {
     res.status(500).json({ reply: "Error connecting to server." });
   }
 });
-
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-});
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-    
