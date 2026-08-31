@@ -1,18 +1,15 @@
 const express = require('express');
 const cors = require('cors');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
-const { GoogleGenAI } = require('@google/genai');
-
-const ai = new GoogleGenAI({ apiKey: 'AIzaSyAJi_B5h769fX32hld3q0_YJ7wdoOYA9N0' });
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-const SECRET_KEY = "mysecretkey";
+const SECRET_KEY = 'mysecretkey';
 let db;
 
 (async () => {
@@ -24,6 +21,14 @@ let db;
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT);
     CREATE TABLE IF NOT EXISTS history (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, message TEXT, reply TEXT);
+    CREATE TABLE IF NOT EXISTS college_info (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, question TEXT, answer TEXT);
+  `);
+
+  await db.run(`
+    INSERT OR IGNORE INTO college_info (id, category, question, answer) VALUES 
+    (1, 'admission', 'admission date', 'College admissions for ECE and CSE start on June 1st and close by June 30th.'),
+    (2, 'exam', 'exam dates', 'Internal exams start next month 15th, and semester exams begin in November.'),
+    (3, 'hostel', 'hostel facility', 'Separate hostel facilities are available for boys and girls with mess and Wi-Fi.');
   `);
 })();
 
@@ -50,25 +55,18 @@ app.post('/api/login', async (req, res) => {
 
 app.post('/api/chat', async (req, res) => {
   const { message, username } = req.body;
-  
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: message,
-    });
-    
-    const reply = response.text || "No response generated.";
+    const match = await db.get('SELECT answer FROM college_info WHERE question LIKE ?', [`%${message}%`]);
+    const reply = match ? match.answer : "Sorry, I don't have information about that. Please contact the college office.";
 
     if (username) {
       await db.run('INSERT INTO history (username, message, reply) VALUES (?, ?, ?)', [username, message, reply]);
     }
-
     res.json({ reply });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ reply: "Error connecting to Gemini AI." });
+    res.status(500).json({ reply: "Error connecting to server." });
   }
 });
 
 app.listen(5000, () => console.log('Server running on http://localhost:5000'));
-
